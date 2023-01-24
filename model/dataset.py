@@ -373,3 +373,6 @@ class MyDataset(InMemoryDataset):
         edge_index = torch.cat([edge_0, edge_1], dim=0)
 
         return x, edge_index
+
+    def get_labels(self, ):
+        return self.data.y

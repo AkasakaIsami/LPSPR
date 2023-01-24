@@ -4,13 +4,13 @@ import os
 import pandas as pd
 
 from dataset import MyDataset
+from test import test
 from train import train
 
 
 def dictionary_and_embedding(raw_dir, project):
     embedding_dim = cf.getint('embedding', 'dim')
 
-    # TODO: 适配新路径
     corpus_file_path = os.path.join(raw_dir, str(0), 'data.txt')
     model_file_name = project + "_w2v_" + str(embedding_dim) + '.model'
 
@@ -91,9 +91,9 @@ if __name__ == '__main__':
 
     print('step4: 开始训练...')
     result_dir = os.path.join(root_dir, 'model')
-    # model, record_file_path = train(train_dataset, val_dataset, methods_info, result_dir)
+    model, record_file_path = train(train_dataset, val_dataset, methods_info, result_dir)
 
     print('step5: 开始测试...')
-    # test(model, test_dataset, record_file_path)
+    test(model, test_dataset, methods_info, record_file_path)
 
     print('完成...')
