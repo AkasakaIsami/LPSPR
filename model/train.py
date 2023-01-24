@@ -13,7 +13,7 @@ from torchinfo import summary
 from torchsampler import ImbalancedDatasetSampler
 
 from dataset import MyDataset
-from model import StatementClassifier
+from model import StatementClassifierMultipleEdge, StatementClassifierSingleEdge
 from util import float_to_percent
 
 
@@ -32,9 +32,9 @@ def train(train_dataset: MyDataset, val_dataset: MyDataset, methods_info: pd.Dat
     GAMMA = cf.getfloat('train', 'gamma')
 
     # 读取特征选择
-    ASTOn = cf.get('eval-config', 'ASTOn')
-    CFGOn = cf.get('eval-config', 'CFGOn')
-    DFGOn = cf.get('eval-config', 'DFGOn')
+    ASTOn = cf.getboolean('eval-config', 'ASTOn')
+    CFGOn = cf.getboolean('eval-config', 'CFGOn')
+    DFGOn = cf.getboolean('eval-config', 'DFGOn')
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -76,11 +76,12 @@ def train(train_dataset: MyDataset, val_dataset: MyDataset, methods_info: pd.Dat
             # TODO: 每个AST只取第一行
             astss += info['ASTs'].tolist()[0]
 
-            cfg_edge_index = info['edges'].tolist()[0][0]
-            dfg_edge_index = info['edges'].tolist()[0][1]
+            cfg_edge_index = info['edges'].tolist()[0][0].long()
+            dfg_edge_index = info['edges'].tolist()[0][1].long()
 
-            if CFGOn and DFGOn:
-                edge_index = torch.cat([cfg_edge_index, dfg_edge_index], 1).long()
+            if (CFGOn and DFGOn) or (not CFGOn and not DFGOn):
+                # 如果都关上的话 默认走两个都开
+                edge_index = torch.cat([cfg_edge_index, dfg_edge_index], 1)
                 len_1 = cfg_edge_index.shape[1]
                 len_2 = dfg_edge_index.shape[1]
                 edge_type_1 = torch.zeros(len_1, )
@@ -98,7 +99,7 @@ def train(train_dataset: MyDataset, val_dataset: MyDataset, methods_info: pd.Dat
                 new_data = Data(
                     id=data.id,
                     idx=data.idx,
-                    edge_index=info['edges'][0],
+                    edge_index=cfg_edge_index,
                     y=data.y
                 )
 
@@ -106,7 +107,7 @@ def train(train_dataset: MyDataset, val_dataset: MyDataset, methods_info: pd.Dat
                 new_data = Data(
                     id=data.id,
                     idx=data.idx,
-                    edge_index=info['edges'][1],
+                    edge_index=dfg_edge_index,
                     y=data.y
                 )
 
@@ -129,7 +130,10 @@ def train(train_dataset: MyDataset, val_dataset: MyDataset, methods_info: pd.Dat
                             shuffle=False)
 
     # 定义模型相关的东西
-    model = StatementClassifier().to(device)
+    if (CFGOn and DFGOn) or (not CFGOn and not DFGOn):
+        model = StatementClassifierMultipleEdge().to(device)
+    else:
+        model = StatementClassifierSingleEdge().to(device)
     parameters = model.parameters()
     optimizer = torch.optim.Adam(parameters, lr=LR)
     loss_function = torch.nn.MSELoss().to(device)

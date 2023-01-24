@@ -45,7 +45,7 @@ def test(model, test_dataset, methods_info, record_file_path: str):
             cfg_edge_index = info['edges'].tolist()[0][0]
             dfg_edge_index = info['edges'].tolist()[0][1]
 
-            if CFGOn and DFGOn:
+            if (CFGOn and DFGOn) or (not CFGOn and not DFGOn):
                 edge_index = torch.cat([cfg_edge_index, dfg_edge_index], 1).long()
                 len_1 = cfg_edge_index.shape[1]
                 len_2 = dfg_edge_index.shape[1]
