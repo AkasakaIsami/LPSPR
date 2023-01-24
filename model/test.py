@@ -78,7 +78,7 @@ def test(model, test_dataset, methods_info, record_file_path: str):
 
             new_datalist.append(new_data)
 
-        return Batch.from_data_list(astss).to(device), Batch.from_data_list(new_datalist).to(device)
+        return Batch.from_data_list(astss), Batch.from_data_list(new_datalist)
 
     test_loader = DataLoader(dataset=test_dataset,
                              collate_fn=my_collate_fn,
@@ -92,9 +92,9 @@ def test(model, test_dataset, methods_info, record_file_path: str):
     model.eval()
     with torch.no_grad():
         for i, (astss, data) in enumerate(test_loader):
-            y_hat = model(astss, data)
+            y_hat = model(astss.to(device), data.to(device))
             y_hat = y_hat.reshape(y_hat.shape[0], )
-            y = data.y
+            y = data.y.to(device)
 
             # 用来计算测试集整体指标
             y_hat_total = torch.cat([y_hat_total, y_hat])
@@ -103,12 +103,12 @@ def test(model, test_dataset, methods_info, record_file_path: str):
     for i in range(y_hat_total.shape[0]):
         y_hat_total[i] = 1 if y_hat_total[i] >= 0.5 else 0
 
-    acc = accuracy_score(y_total, y_hat_total)
-    balanced_acc = balanced_accuracy_score(y_total, y_hat_total)
-    ps = precision_score(y_total, y_hat_total)
-    rc = recall_score(y_total, y_hat_total)
-    f1 = f1_score(y_total, y_hat_total)
-    c = confusion_matrix(y_total, y_hat_total, labels=[0, 1])
+    acc = accuracy_score(y_total.cpu(), y_hat_total.cpu())
+    balanced_acc = balanced_accuracy_score(y_total.cpu(), y_hat_total.cpu())
+    ps = precision_score(y_total.cpu(), y_hat_total.cpu())
+    rc = recall_score(y_total.cpu(), y_hat_total.cpu())
+    f1 = f1_score(y_total.cpu(), y_hat_total.cpu())
+    c = confusion_matrix(y_total.cpu(), y_hat_total.cpu(), labels=[0, 1])
 
     print(f"测试集 accuracy_score: {float_to_percent(acc)}")
     print(f"测试集 balanced_accuracy_score: {float_to_percent(balanced_acc)}")

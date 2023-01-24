@@ -25,10 +25,13 @@ def dictionary_and_embedding(raw_dir, project):
     w2v.save(save_path)
 
 
-def get_data(raw_dir: str) -> pd.DataFrame:
+def get_data(raw_dir: str, process_dir: str) -> pd.DataFrame:
     """
     根据项目目录下的文件结构来收集所有的函数
     """
+    if os.path.exists(process_dir):
+        return None
+
     all_methods = pd.DataFrame(columns=['class', 'method'])
 
     project_dir = os.path.join(raw_dir)
@@ -84,7 +87,7 @@ if __name__ == '__main__':
     dictionary_and_embedding(raw_dir, project)
 
     print('step2: 获取源数据...')
-    method_list = get_data(raw_dir)
+    method_list = get_data(raw_dir, process_dir)
 
     print('step3: 制作数据集...')
     train_dataset, val_dataset, test_dataset, methods_info = make_dataset(method_list, root_dir, project)

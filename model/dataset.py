@@ -81,8 +81,8 @@ class MyDataset(InMemoryDataset):
         project_root = self.raw_paths[0]
         word2vec_path = os.path.join(project_root, self.project + '_w2v_' + str(embedding_dim) + '.model')
         word2vec = Word2Vec.load(word2vec_path).wv
-        embeddings = torch.from_numpy(word2vec.vectors).to(self.device)
-        embeddings = torch.cat([embeddings, torch.zeros(1, embedding_dim).to(self.device)], dim=0)
+        embeddings = torch.from_numpy(word2vec.vectors)
+        embeddings = torch.cat([embeddings, torch.zeros(1, embedding_dim)], dim=0)
         self.embeddings = embeddings
         self.word2vec = word2vec
 
@@ -141,12 +141,12 @@ class MyDataset(InMemoryDataset):
                 asts.append(ast_data)
 
                 # Step2: 再构建statement数据集
-                index = torch.zeros(num_statements, 1).to(self.device)
+                index = torch.zeros(num_statements, 1)
                 index[i] = 1
                 statement_data = Data(
                     id=id + "@" + str(lines[i]),
                     idx=index,
-                    y=torch.tensor(y[i]).to(self.device)
+                    y=torch.tensor(y[i])
                 )
 
                 if statement_data.y == 0:
@@ -284,13 +284,13 @@ class MyDataset(InMemoryDataset):
                 edge_0_dfg.append(source)
                 edge_1_dfg.append(destination)
 
-        edge_0_cfg = torch.as_tensor(edge_0_cfg).to(self.device)
-        edge_1_cfg = torch.as_tensor(edge_1_cfg).to(self.device)
+        edge_0_cfg = torch.as_tensor(edge_0_cfg)
+        edge_1_cfg = torch.as_tensor(edge_1_cfg)
         edge_0_cfg = edge_0_cfg.reshape(1, len(edge_0_cfg))
         edge_1_cfg = edge_1_cfg.reshape(1, len(edge_1_cfg))
 
-        edge_0_dfg = torch.as_tensor(edge_0_dfg).to(self.device)
-        edge_1_dfg = torch.as_tensor(edge_1_dfg).to(self.device)
+        edge_0_dfg = torch.as_tensor(edge_0_dfg)
+        edge_1_dfg = torch.as_tensor(edge_1_dfg)
         edge_0_dfg = edge_0_dfg.reshape(1, len(edge_0_dfg))
         edge_1_dfg = edge_1_dfg.reshape(1, len(edge_1_dfg))
 
@@ -317,7 +317,7 @@ class MyDataset(InMemoryDataset):
             """
             max_token = self.word2vec.vectors.shape[0]
             index = [self.word2vec.key_to_index[token] if token in self.word2vec.key_to_index else max_token]
-            return self.embeddings[index].to(self.device)
+            return self.embeddings[index]
 
         def tokens_to_embedding(tokens, weight):
             """
@@ -327,7 +327,7 @@ class MyDataset(InMemoryDataset):
             :param tokens:节点的token序列
             :return: 最终的节点向量
             """
-            result = torch.zeros([1, 128], dtype=torch.float).to(self.device)
+            result = torch.zeros([1, 128], dtype=torch.float)
 
             for token in tokens:
                 token_embedding = word_to_vec(token)
@@ -353,7 +353,7 @@ class MyDataset(InMemoryDataset):
             node_embedding = tokens_to_embedding(tokens, weight)
             x.append(node_embedding)
 
-        x = torch.cat(x).to(self.device)
+        x = torch.cat(x)
 
         edges = graph.get_edge_list()
         edge_0 = []
@@ -365,8 +365,8 @@ class MyDataset(InMemoryDataset):
             edge_0.append(source)
             edge_1.append(destination)
 
-        edge_0 = torch.as_tensor(edge_0, dtype=torch.int).to(self.device)
-        edge_1 = torch.as_tensor(edge_1, dtype=torch.int).to(self.device)
+        edge_0 = torch.as_tensor(edge_0, dtype=torch.int)
+        edge_1 = torch.as_tensor(edge_1, dtype=torch.int)
         edge_0 = edge_0.reshape(1, len(edge_0))
         edge_1 = edge_1.reshape(1, len(edge_1))
 

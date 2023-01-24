@@ -112,7 +112,7 @@ def train(train_dataset: MyDataset, val_dataset: MyDataset, methods_info: pd.Dat
 
             new_datalist.append(new_data)
 
-        return Batch.from_data_list(astss).to(device), Batch.from_data_list(new_datalist).to(device)
+        return Batch.from_data_list(astss), Batch.from_data_list(new_datalist)
 
     # 准备开始训练
     # 先定义数据读取方式 过采样+欠采样
@@ -152,9 +152,9 @@ def train(train_dataset: MyDataset, val_dataset: MyDataset, methods_info: pd.Dat
 
         model.train()
         for i, (astss, data) in enumerate(train_loader):
-            y_hat = model(astss, data)
+            y_hat = model(astss.to(device), data.to(device))
             y_hat = y_hat.reshape(y_hat.shape[0], )
-            y = data.y.float()
+            y = data.y.float().to(device)
             loss = loss_function(y_hat, y)
 
             optimizer.zero_grad()
@@ -174,9 +174,9 @@ def train(train_dataset: MyDataset, val_dataset: MyDataset, methods_info: pd.Dat
         model.eval()
         with torch.no_grad():
             for i, (astss, data) in enumerate(val_loader):
-                y_hat = model(astss, data)
+                y_hat = model(astss.to(device), data.to(device))
                 y_hat = y_hat.reshape(y_hat.shape[0], )
-                y = data.y
+                y = data.y.to(device)
                 loss = loss_function(y_hat, y)
 
                 # 用来计算验证集整体指标
