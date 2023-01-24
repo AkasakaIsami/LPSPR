@@ -1,5 +1,6 @@
 import configparser
 import os
+import random
 from datetime import datetime
 import time
 
@@ -15,6 +16,10 @@ from torchsampler import ImbalancedDatasetSampler
 from dataset import MyDataset
 from model import StatementClassifierMultipleEdge, StatementClassifierSingleEdge
 from util import float_to_percent
+
+import warnings
+
+warnings.filterwarnings("ignore")
 
 
 def train(train_dataset: MyDataset, val_dataset: MyDataset, methods_info: pd.DataFrame, result_dir: str):
@@ -68,9 +73,6 @@ def train(train_dataset: MyDataset, val_dataset: MyDataset, methods_info: pd.Dat
             # 去method_info里取出它对应函数的AST相关信息和函数相关信息
 
             method = data.id.split('@')[0]
-            # TODO: 用来最后算TN和FP的
-            line = data.id.split('@')[1]
-
             info = methods_info.loc[methods_info['id'] == method]
 
             if ASTOn:
@@ -180,6 +182,9 @@ def train(train_dataset: MyDataset, val_dataset: MyDataset, methods_info: pd.Dat
         y_hat_total = torch.randn(0).to(device)
         y_total = torch.randn(0).to(device)
 
+        TP = []
+        TN = []
+        FP = []
         model.eval()
         with torch.no_grad():
             for i, (astss, data) in enumerate(val_loader):
@@ -192,6 +197,22 @@ def train(train_dataset: MyDataset, val_dataset: MyDataset, methods_info: pd.Dat
                 total_val_loss += loss.item()
                 y_hat_total = torch.cat([y_hat_total, y_hat])
                 y_total = torch.cat([y_total, y])
+
+                # 用来计算当前batch的TN和FP
+                for j in range(y_hat.shape[0]):
+                    fac = y[j].item()
+                    pre = y_hat[j].item()
+
+                    statement_id = data[j].id
+                    if fac == 1:
+                        if pre >= 0.5:
+                            # 预测对了！
+                            TP.append(statement_id)
+                        else:
+                            TN.append(statement_id)
+                    else:
+                        if pre > 0.5:
+                            FP.append(statement_id)
 
         for i in range(y_hat_total.shape[0]):
             y_hat_total[i] = 1 if y_hat_total[i] >= 0.5 else 0
@@ -219,8 +240,31 @@ def train(train_dataset: MyDataset, val_dataset: MyDataset, methods_info: pd.Dat
         record_file.write(f"验证集 f1_score: {float_to_percent(f1)}\n")
         record_file.write(f"验证集 混淆矩阵:\n {c}\n")
 
+        # 对于TP（猜对了）、TN（没猜出来）、FP（猜错了） 分别取20条写进文件
+        index = 0
+        record_file.write("预测正确的的TN有：\n")
+        TP = random.sample(TP, 20 if len(TP) > 20 else len(TP))
+        for item in TP:
+            record_file.write(f'    -{index}. {item}\n')
+            index += 1
+
+        index = 0
+        record_file.write("实际是正样本，却被预测为负样本的TN有：\n")
+        TN = random.sample(TN, 20 if len(TN) > 20 else len(TN))
+        for item in TN:
+            record_file.write(f'    -{index}. {item}\n')
+            index += 1
+
+        index = 0
+        record_file.write("实际是负样本，被预测为正样本的FP有：\n")
+        FP = random.sample(FP, 20 if len(FP) > 20 else len(FP))
+        for item in FP:
+            record_file.write(f'    -{index}. {item}\n')
+            index += 1
+
         # 主要看balanced_accuracy_score
         if balanced_acc > best_acc:
+            record_file.write(f"***当前模型的平衡准确率表现最好，被记为表现最好的模型***\n")
             best_model = model
             best_acc = balanced_acc
 

@@ -1,5 +1,6 @@
 import configparser
 import os
+import random
 
 import torch
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, precision_score, recall_score, f1_score, \
@@ -94,6 +95,9 @@ def test(model, test_dataset, methods_info, record_file_path: str):
 
     y_hat_total = torch.randn(0).to(device)
     y_total = torch.randn(0).to(device)
+    TP = []
+    TN = []
+    FP = []
 
     model.eval()
     with torch.no_grad():
@@ -105,6 +109,21 @@ def test(model, test_dataset, methods_info, record_file_path: str):
             # 用来计算测试集整体指标
             y_hat_total = torch.cat([y_hat_total, y_hat])
             y_total = torch.cat([y_total, y])
+
+            for j in range(y_hat.shape[0]):
+                fac = y[j].item()
+                pre = y_hat[j].item()
+
+                statement_id = data[j].id
+                if fac == 1:
+                    if pre >= 0.5:
+                        # 预测对了！
+                        TP.append(statement_id)
+                    else:
+                        TN.append(statement_id)
+                else:
+                    if pre > 0.5:
+                        FP.append(statement_id)
 
     for i in range(y_hat_total.shape[0]):
         y_hat_total[i] = 1 if y_hat_total[i] >= 0.5 else 0
@@ -130,5 +149,27 @@ def test(model, test_dataset, methods_info, record_file_path: str):
     record_file.write(f"测试集 recall_score: {float_to_percent(rc)}\n")
     record_file.write(f"测试集 f1_score: {float_to_percent(f1)}\n")
     record_file.write(f"测试集 混淆矩阵:\n {c}")
+
+    # 对于TP（猜对了）、TN（没猜出来）、FP（猜错了） 分别取20条写进文件
+    index = 0
+    record_file.write("预测正确的的TN有：\n")
+    TP = random.sample(TP, 20 if len(TP) > 20 else len(TP))
+    for item in TP:
+        record_file.write(f'    -{index}. {item}\n')
+        index += 1
+
+    index = 0
+    record_file.write("实际是正样本，却被预测为负样本的TN有：\n")
+    TN = random.sample(TN, 20 if len(TN) > 20 else len(TN))
+    for item in TN:
+        record_file.write(f'    -{index}. {item}\n')
+        index += 1
+
+    index = 0
+    record_file.write("实际是负样本，被预测为正样本的FP有：\n")
+    FP = random.sample(FP, 20 if len(FP) > 20 else len(FP))
+    for item in FP:
+        record_file.write(f'    -{index}. {item}\n')
+        index += 1
 
     record_file.close()

@@ -93,7 +93,7 @@ if __name__ == '__main__':
     train_dataset, val_dataset, test_dataset, methods_info = make_dataset(method_list, root_dir, project)
 
     print('step4: 开始训练...')
-    result_dir = os.path.join(root_dir, 'model')
+    result_dir = os.path.join(root_dir, 'result')
     model, record_file_path = train(train_dataset, val_dataset, methods_info, result_dir)
 
     print('step5: 开始测试...')
