@@ -39,14 +39,20 @@ def test(model, test_dataset, methods_info, record_file_path: str):
 
             info = methods_info.loc[methods_info['id'] == method]
 
-            # TODO: 每个AST只取第一行
-            astss += info['ASTs'].tolist()[0]
+            if ASTOn:
+                astss += info['ASTs'].tolist()[0]
+            else:
+                for ast in info['ASTs'].tolist()[0]:
+                    ast.x = torch.index_select(ast.x, dim=0, index=torch.tensor([0]))
+                    ast.edge_index = torch.zeros(2, 0).long()
+                astss += info['ASTs'].tolist()[0]
 
-            cfg_edge_index = info['edges'].tolist()[0][0]
-            dfg_edge_index = info['edges'].tolist()[0][1]
+            cfg_edge_index = info['edges'].tolist()[0][0].long()
+            dfg_edge_index = info['edges'].tolist()[0][1].long()
 
             if (CFGOn and DFGOn) or (not CFGOn and not DFGOn):
-                edge_index = torch.cat([cfg_edge_index, dfg_edge_index], 1).long()
+                # 如果都关上的话 默认走两个都开
+                edge_index = torch.cat([cfg_edge_index, dfg_edge_index], 1)
                 len_1 = cfg_edge_index.shape[1]
                 len_2 = dfg_edge_index.shape[1]
                 edge_type_1 = torch.zeros(len_1, )
@@ -64,7 +70,7 @@ def test(model, test_dataset, methods_info, record_file_path: str):
                 new_data = Data(
                     id=data.id,
                     idx=data.idx,
-                    edge_index=info['edges'][0],
+                    edge_index=cfg_edge_index,
                     y=data.y
                 )
 
@@ -72,7 +78,7 @@ def test(model, test_dataset, methods_info, record_file_path: str):
                 new_data = Data(
                     id=data.id,
                     idx=data.idx,
-                    edge_index=info['edges'][1],
+                    edge_index=dfg_edge_index,
                     y=data.y
                 )
 
