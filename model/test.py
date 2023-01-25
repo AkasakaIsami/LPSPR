@@ -148,7 +148,7 @@ def test(model, test_dataset, methods_info, record_file_path: str):
     record_file.write(f"测试集 precision_score: {float_to_percent(ps)}\n")
     record_file.write(f"测试集 recall_score: {float_to_percent(rc)}\n")
     record_file.write(f"测试集 f1_score: {float_to_percent(f1)}\n")
-    record_file.write(f"测试集 混淆矩阵:\n {c}")
+    record_file.write(f"测试集 混淆矩阵:\n {c}\n")
 
     # 对于TP（猜对了）、TN（没猜出来）、FP（猜错了） 分别取20条写进文件
     index = 0
