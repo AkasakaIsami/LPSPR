@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
     print('step4: 开始训练...')
     result_dir = os.path.join(root_dir, 'result')
-    # model, record_file_path = train(train_dataset, val_dataset, methods_info, result_dir)
+    model, record_file_path = train(train_dataset, val_dataset, methods_info, result_dir)
 
     print('step5: 开始测试...')
     # test(model, test_dataset, methods_info, record_file_path)
