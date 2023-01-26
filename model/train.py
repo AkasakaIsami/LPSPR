@@ -15,7 +15,7 @@ from torchsampler import ImbalancedDatasetSampler
 
 from dataset import MyDataset
 from model import StatementClassifierMultipleEdge, StatementClassifierSingleEdge
-from sampler import BalancedDatasetSampler
+from sampler import BalancedDatasetSampler, RatioDatasetSampler
 from util import float_to_percent
 
 import warnings
@@ -127,14 +127,15 @@ def train(train_dataset: MyDataset, val_dataset: MyDataset, methods_info: pd.Dat
     # 先定义数据读取方式 过采样+欠采样
     train_loader = DataLoader(dataset=train_dataset,
                               collate_fn=my_collate_fn,
-                              sampler=BalancedDatasetSampler(train_dataset),
+                              sampler=RatioDatasetSampler(train_dataset,3),
                               batch_size=BATCH_SIZE,
                               shuffle=False)
 
     val_loader = DataLoader(dataset=val_dataset,
                             collate_fn=my_collate_fn,
+                            sampler=RatioDatasetSampler(val_dataset, 3),
                             batch_size=BATCH_SIZE,
-                            shuffle=True)
+                            shuffle=False)
 
     # 定义模型相关的东西
     if (CFGOn and DFGOn) or (not CFGOn and not DFGOn):
