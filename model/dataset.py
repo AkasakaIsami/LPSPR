@@ -1,6 +1,7 @@
 import configparser
 import os
 import time
+from functools import cmp_to_key
 
 import pandas as pd
 import pydot
@@ -133,7 +134,6 @@ class MyDataset(InMemoryDataset):
 
                 # Step1: 先构建存在method_info.pkl里的函数信息数据
                 ast_x, ast_edge_index = self.process_statement_dot(graph=statement_graph, weight=None)
-                # TODO: 保证有序 一定要一一对应
                 ast_data = Data(
                     x=ast_x,
                     edge_index=ast_edge_index,
@@ -245,6 +245,15 @@ class MyDataset(InMemoryDataset):
         nodes = graph.get_node_list()
         if len(graph.get_node_list()) > 0 and graph.get_node_list()[-1].get_name() == '"\\n"':
             nodes = graph.get_node_list()[:-1]
+
+        # 对nodes进行自定义排序
+        def cmp(x, y):
+            a = int(x.get_name()[1:])
+            b = int(y.get_name()[1:])
+
+            return 1 if a > b else -1 if a < b else 0
+
+        nodes.sort(key=cmp_to_key(cmp))
         node_num = len(nodes)
 
         tempLOC = 0
