@@ -19,7 +19,7 @@ def visual(x, y):
     x_min, x_max = np.min(x, 0), np.max(x, 0)
     x = (x - x_min) / (x_max - x_min)
 
-    color=['lightblue','red']
+    color = ['lightblue', 'red']
     for i in range(x.shape[0]):
         plt.text(x[i, 0],
                  x[i, 1],
@@ -27,10 +27,10 @@ def visual(x, y):
                  color=color[y[i]])
     plt.xticks([])  # 去掉横坐标值
     plt.yticks([])  # 去掉纵坐标值
-    plt.show()
     f = plt.gcf()  # 获取当前图像
-    f.savefig('./')
+    f.savefig('./akasaka')
     f.clear()  # 释放内存
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     train_dataset = MyDataset(root=root_dir, project=project, dataset_type="train")
     methods_info = pd.read_pickle(os.path.join(root_dir, 'processed', 'method_info.pkl'))
 
-    ASTOn = True
+    ASTOn = False
     CFGOn = True
     DFGOn = True
 
@@ -133,6 +133,7 @@ if __name__ == '__main__':
             if idx[i].item() == 1:
                 index.append(i)
         return torch.tensor(index).long()
+
 
     def eval1():
         # 实验 2.1：只看当前语句节点的AST
@@ -236,4 +237,42 @@ if __name__ == '__main__':
         visual(xs, ys)
 
 
-    eval3()
+    def eval4():
+        # 实验 2.4：考虑当前语句前的所有语句，但不考虑AST
+        ys_neg = []
+        xs_neg = torch.randn(0, 128)
+
+        ys_pos = []
+        xs_pos = torch.randn(0, 128)
+
+        for i, (asts, data) in enumerate(train_loader):
+            data = data[0]
+            idx = idx2index(data.idx).item()
+
+            statements_vec = torch.zeros(1, 128)
+            for j in range(idx):
+                ast = asts[j]
+                statement_vec = ast.x
+                statements_vec += statement_vec
+
+            statements_vec /= idx + 1
+
+            if data.y.item() == 0:
+                xs_neg = torch.cat([xs_neg, statements_vec], dim=0)
+                ys_neg.append(data.y.item())
+            else:
+                xs_pos = torch.cat([xs_pos, statements_vec], dim=0)
+                ys_pos.append(data.y.item())
+
+        ys = []
+        ys += ys_neg
+        ys += ys_pos
+        ys = np.array(ys)
+
+        xs = torch.cat([xs_neg, xs_pos], dim=0)
+        xs = xs.numpy()
+
+        visual(xs, ys)
+
+
+    eval4()
