@@ -14,17 +14,17 @@ from dataset import MyDataset
 
 def visual(x, y):
     # t-SNE的最终结果的降维与可视化
-    tsne = manifold.TSNE(n_components=2, init='pca', random_state=0)
+    tsne = manifold.TSNE(n_components=2, init='pca', random_state=0, )
     x = tsne.fit_transform(x)
     x_min, x_max = np.min(x, 0), np.max(x, 0)
     x = (x - x_min) / (x_max - x_min)
 
-    colors = ['#e38c7a', '#656667']
+    color=['lightblue','red']
     for i in range(x.shape[0]):
         plt.text(x[i, 0],
                  x[i, 1],
                  str(y[i]),
-                 color=colors[y[i]])
+                 color=color[y[i]])
     plt.xticks([])  # 去掉横坐标值
     plt.yticks([])  # 去掉纵坐标值
     plt.show()
@@ -133,8 +133,11 @@ if __name__ == '__main__':
 
 
     # 实验 2.1：只看当前语句节点的AST
-    ys = []
-    xs = torch.randn(0, 128)
+    ys_neg = []
+    xs_neg = torch.randn(0, 128)
+
+    ys_pos = []
+    xs_pos = torch.randn(0, 128)
     for i, (asts, data) in enumerate(train_loader):
         data = data[0]
         idx = idx2index(data.idx).item()
@@ -142,10 +145,19 @@ if __name__ == '__main__':
         statement_vec = ast.x.mean(axis=0)
         statement_vec = statement_vec.reshape(1, 128)
 
-        xs = torch.cat([xs, statement_vec], dim=0)
-        ys.append(data.y.item())
+        if data.y.item() == 0:
+            xs_neg = torch.cat([xs_neg, statement_vec], dim=0)
+            ys_neg.append(data.y.item())
+        else:
+            xs_pos = torch.cat([xs_pos, statement_vec], dim=0)
+            ys_pos.append(data.y.item())
 
+    ys = []
+    ys += ys_neg
+    ys += ys_pos
     ys = np.array(ys)
+
+    xs = torch.cat([xs_neg, xs_pos], dim=0)
     xs = xs.numpy()
 
     visual(xs, ys)
