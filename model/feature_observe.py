@@ -54,7 +54,7 @@ if __name__ == '__main__':
     train_dataset = MyDataset(root=root_dir, project=project, dataset_type="train")
     methods_info = pd.read_pickle(os.path.join(root_dir, 'processed', 'method_info.pkl'))
 
-    ASTOn = True
+    ASTOn = False
     CFGOn = True
     DFGOn = True
 
@@ -135,33 +135,67 @@ if __name__ == '__main__':
                 index.append(i)
         return torch.tensor(index).long()
 
+    def eval1():
+        # 实验 2.1：只看当前语句节点的AST
+        ys_neg = []
+        xs_neg = torch.randn(0, 128)
 
-    # 实验 2.1：只看当前语句节点的AST
-    ys_neg = []
-    xs_neg = torch.randn(0, 128)
+        ys_pos = []
+        xs_pos = torch.randn(0, 128)
+        for i, (asts, data) in enumerate(train_loader):
+            data = data[0]
+            idx = idx2index(data.idx).item()
+            ast = asts[idx]
+            statement_vec = ast.x.mean(axis=0)
+            statement_vec = statement_vec.reshape(1, 128)
 
-    ys_pos = []
-    xs_pos = torch.randn(0, 128)
-    for i, (asts, data) in enumerate(train_loader):
-        data = data[0]
-        idx = idx2index(data.idx).item()
-        ast = asts[idx]
-        statement_vec = ast.x.mean(axis=0)
-        statement_vec = statement_vec.reshape(1, 128)
+            if data.y.item() == 0:
+                xs_neg = torch.cat([xs_neg, statement_vec], dim=0)
+                ys_neg.append(data.y.item())
+            else:
+                xs_pos = torch.cat([xs_pos, statement_vec], dim=0)
+                ys_pos.append(data.y.item())
 
-        if data.y.item() == 0:
-            xs_neg = torch.cat([xs_neg, statement_vec], dim=0)
-            ys_neg.append(data.y.item())
-        else:
-            xs_pos = torch.cat([xs_pos, statement_vec], dim=0)
-            ys_pos.append(data.y.item())
+        ys = []
+        ys += ys_neg
+        ys += ys_pos
+        ys = np.array(ys)
 
-    ys = []
-    ys += ys_neg
-    ys += ys_pos
-    ys = np.array(ys)
+        xs = torch.cat([xs_neg, xs_pos], dim=0)
+        xs = xs.numpy()
 
-    xs = torch.cat([xs_neg, xs_pos], dim=0)
-    xs = xs.numpy()
+        visual(xs, ys)
 
-    visual(xs, ys)
+
+    def eval2():
+        # 实验 2.2：只看当前语句节点的AST根结点
+        ys_neg = []
+        xs_neg = torch.randn(0, 128)
+
+        ys_pos = []
+        xs_pos = torch.randn(0, 128)
+
+        for i, (asts, data) in enumerate(train_loader):
+            data = data[0]
+            idx = idx2index(data.idx).item()
+            ast = asts[idx]
+            statement_vec = ast.x
+
+            if data.y.item() == 0:
+                xs_neg = torch.cat([xs_neg, statement_vec], dim=0)
+                ys_neg.append(data.y.item())
+            else:
+                xs_pos = torch.cat([xs_pos, statement_vec], dim=0)
+                ys_pos.append(data.y.item())
+
+        ys = []
+        ys += ys_neg
+        ys += ys_pos
+        ys = np.array(ys)
+
+        xs = torch.cat([xs_neg, xs_pos], dim=0)
+        xs = xs.numpy()
+
+        visual(xs, ys)
+
+    eval2()
