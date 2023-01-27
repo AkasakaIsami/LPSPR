@@ -33,7 +33,6 @@ def visual(x, y):
     f.clear()  # 释放内存
 
 
-
 if __name__ == '__main__':
     """
     这个文件用于对初始特征进行观察
@@ -54,7 +53,7 @@ if __name__ == '__main__':
     train_dataset = MyDataset(root=root_dir, project=project, dataset_type="train")
     methods_info = pd.read_pickle(os.path.join(root_dir, 'processed', 'method_info.pkl'))
 
-    ASTOn = False
+    ASTOn = True
     CFGOn = True
     DFGOn = True
 
@@ -198,4 +197,43 @@ if __name__ == '__main__':
 
         visual(xs, ys)
 
-    eval2()
+
+    def eval3():
+        # 实验 2.3：考虑当前语句前的所有语句，考虑AST
+        ys_neg = []
+        xs_neg = torch.randn(0, 128)
+
+        ys_pos = []
+        xs_pos = torch.randn(0, 128)
+        for i, (asts, data) in enumerate(train_loader):
+            data = data[0]
+            idx = idx2index(data.idx).item()
+
+            statements_vec = torch.zeros(1, 128)
+            for j in range(idx):
+                ast = asts[j]
+                statement_vec = ast.x.mean(axis=0)
+                statement_vec = statement_vec.reshape(1, 128)
+                statements_vec += statement_vec
+
+            statements_vec /= idx + 1
+
+            if data.y.item() == 0:
+                xs_neg = torch.cat([xs_neg, statements_vec], dim=0)
+                ys_neg.append(data.y.item())
+            else:
+                xs_pos = torch.cat([xs_pos, statements_vec], dim=0)
+                ys_pos.append(data.y.item())
+
+        ys = []
+        ys += ys_neg
+        ys += ys_pos
+        ys = np.array(ys)
+
+        xs = torch.cat([xs_neg, xs_pos], dim=0)
+        xs = xs.numpy()
+
+        visual(xs, ys)
+
+
+    eval3()
