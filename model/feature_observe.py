@@ -28,6 +28,10 @@ def visual(x, y):
     plt.xticks([])  # 去掉横坐标值
     plt.yticks([])  # 去掉纵坐标值
     plt.show()
+    f = plt.gcf()  # 获取当前图像
+    f.savefig('./')
+    f.clear()  # 释放内存
+
 
 
 if __name__ == '__main__':
