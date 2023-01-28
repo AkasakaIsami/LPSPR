@@ -244,6 +244,10 @@ if __name__ == '__main__':
     ys_pos = []
     xs_pos = torch.randn(0, 2).to(device)
 
+    TP = []
+    TN = []
+    FP = []
+
     model.eval()
     with torch.no_grad():
         for i, data in enumerate(test_loader):
@@ -258,14 +262,27 @@ if __name__ == '__main__':
 
             for i in range(len(data)):
                 item = data[i]
+                tempy = torch.index_select(y_hat, dim=0, index=torch.tensor([i]).to(device))
+                tempid = item.id
+
                 if item.y.equal(torch.tensor([[1, 0]]).to(device)):
                     xs_neg = torch.cat(
-                        [xs_neg, torch.index_select(y_hat, dim=0, index=torch.tensor([i]).to(device))], dim=0)
+                        [xs_neg, tempy], dim=0)
                     ys_neg.append(0)
+                    tempy = tempy.argmax(1)
+                    if tempy.item() == 1:
+                        FP.append(tempid)
+
                 else:
+
                     xs_pos = torch.cat(
-                        [xs_pos, torch.index_select(y_hat, dim=0, index=torch.tensor([i]).to(device))], dim=0)
+                        [xs_pos, tempy], dim=0)
                     ys_pos.append(1)
+                    tempy = tempy.argmax(1)
+                    if tempy.item() == 1:
+                        TP.append(tempid)
+                    else:
+                        TN.append(tempid)
 
     acc = accuracy_score(y_total.cpu(), y_hat_total.cpu())
     balanced_acc = balanced_accuracy_score(y_total.cpu(), y_hat_total.cpu())
@@ -280,6 +297,29 @@ if __name__ == '__main__':
     print(f"测试集 recall_score: {float_to_percent(rc)}")
     print(f"测试集 f1_score: {float_to_percent(f1)}")
     print(f"测试集 混淆矩阵:\n {c}")
+
+    # 对于TP（猜对了）、TN（没猜出来）、FP（猜错了） 分别取20条写进文件
+    record_file = open(os.path.join('./', 'result', 'result.txt'), 'w')
+    print(f"***写入文件中***\n")
+
+    index = 0
+    record_file.write("预测正确的的TN有：\n")
+    for item in TP:
+        record_file.write(f'    -{index}. {item}\n')
+        index += 1
+
+    index = 0
+    record_file.write("实际是正样本，却被预测为负样本的TN有：\n")
+    for item in TN:
+        record_file.write(f'    -{index}. {item}\n')
+        index += 1
+
+    index = 0
+    record_file.write("实际是负样本，被预测为正样本的FP有：\n")
+    for item in FP:
+        record_file.write(f'    -{index}. {item}\n')
+        index += 1
+
 
     print(f"***保存tsne中***\n")
     ys = []
