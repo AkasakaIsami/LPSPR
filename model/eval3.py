@@ -24,13 +24,14 @@ class MyMLP(nn.Module):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.mlp = nn.Sequential(Linear(128, 64, weight_initializer='kaiming_uniform'),
                                  nn.LeakyReLU(),
-                                 Linear(64, 2, weight_initializer='kaiming_uniform'))
-        self.sm = nn.Softmax()
+                                 Linear(64, 32, weight_initializer='kaiming_uniform'),
+                                 nn.LeakyReLU(),
+                                 Linear(32, 2, weight_initializer='kaiming_uniform'),
+                                 )
 
     def forward(self, data):
         x = data.x
-        h = self.mlp(x)
-        out = self.sm(h)
+        out = self.mlp(x)
         return out
 
 
@@ -48,10 +49,10 @@ def idx2index(idx: torch.Tensor) -> torch.Tensor:
 
 def visual(x, y, epoch):
     # t-SNE的最终结果的降维与可视化
-    # tsne = manifold.TSNE(n_components=2, init='pca', random_state=0, )
-    # x = tsne.fit_transform(x)
-    # x_min, x_max = np.min(x, 0), np.max(x, 0)
-    # x = (x - x_min) / (x_max - x_min)
+    tsne = manifold.TSNE(n_components=2, init='pca', random_state=0, )
+    x = tsne.fit_transform(x)
+    x_min, x_max = np.min(x, 0), np.max(x, 0)
+    x = (x - x_min) / (x_max - x_min)
 
     color = ['lightblue', 'red']
     for i in range(x.shape[0]):
@@ -62,7 +63,11 @@ def visual(x, y, epoch):
     plt.xticks([])  # 去掉横坐标值
     plt.yticks([])  # 去掉纵坐标值
     f = plt.gcf()  # 获取当前图像
-    f.savefig(f'./result/{epoch}.png')
+    if epoch == -1:
+        f.savefig(f'./result/test.png')
+    else:
+        f.savefig(f'./result/{epoch}.png')
+
     f.clear()  # 释放内存
     plt.show()
 
@@ -83,15 +88,16 @@ if __name__ == '__main__':
     root_dir = cf.get('data', 'dataDir')
     root_dir = os.path.join(root_dir, project)
 
-    project = 'zookeeperdemo'
-    BS = 32
+    project = 'zookeeper'
+    BS = 15
     LR = 1e-4
-    EPOCHS = 15
+    EPOCHS = 20
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     train_dataset = MyDataset(root=root_dir, project=project, dataset_type="train")
     val_dataset = MyDataset(root=root_dir, project=project, dataset_type="val")
+    test_dataset = MyDataset(root=root_dir, project=project, dataset_type="test")
     methods_info = pd.read_pickle(os.path.join(root_dir, 'processed', 'method_info.pkl'))
 
 
@@ -105,7 +111,7 @@ if __name__ == '__main__':
             x = x[idx2index(data.idx).item()].x
             x = x.mean(axis=0)
             x = x.reshape(1, 128)
-            y = torch.tensor([[0, 1]]) if data.y.item() == 0 else torch.tensor([[1, 0]])
+            y = torch.tensor([[1, 0]]) if data.y.item() == 0 else torch.tensor([[0, 1]])
 
             new_data = Data(
                 id=data.id,
@@ -129,10 +135,15 @@ if __name__ == '__main__':
                             batch_size=BS,
                             shuffle=False)
 
+    test_loader = DataLoader(dataset=test_dataset,
+                             collate_fn=my_collate_fn,
+                             batch_size=BS,
+                             shuffle=False)
+
     model = MyMLP().to(device)
     parameters = model.parameters()
     optimizer = torch.optim.Adam(parameters, lr=LR)
-    loss_function = torch.nn.BCELoss().to(device)
+    loss_function = torch.nn.CrossEntropyLoss().to(device)
 
     # 定义用于评估预测结果的东西
     best_acc = 0.0
@@ -161,10 +172,10 @@ if __name__ == '__main__':
         y_total = torch.randn(0).to(device)
 
         ys_neg = []
-        xs_neg = torch.randn(0, 2)
+        xs_neg = torch.randn(0, 2).to(device)
 
         ys_pos = []
-        xs_pos = torch.randn(0, 2)
+        xs_pos = torch.randn(0, 2).to(device)
 
         model.eval()
         with torch.no_grad():
@@ -182,11 +193,13 @@ if __name__ == '__main__':
 
                 for i in range(len(data)):
                     item = data[i]
-                    if item.y.equal(torch.tensor([[0, 1]])):
-                        xs_neg = torch.cat([xs_neg, torch.index_select(y_hat, dim=0, index=torch.tensor([i]))], dim=0)
+                    if item.y.equal(torch.tensor([[1, 0]]).to(device)):
+                        xs_neg = torch.cat(
+                            [xs_neg, torch.index_select(y_hat, dim=0, index=torch.tensor([i]).to(device))], dim=0)
                         ys_neg.append(0)
                     else:
-                        xs_pos = torch.cat([xs_neg, torch.index_select(y_hat, dim=0, index=torch.tensor([i]))], dim=0)
+                        xs_pos = torch.cat(
+                            [xs_pos, torch.index_select(y_hat, dim=0, index=torch.tensor([i]).to(device))], dim=0)
                         ys_pos.append(1)
 
         print(f"验证集整体Loss: {total_val_loss}")
@@ -215,7 +228,66 @@ if __name__ == '__main__':
         ys += ys_pos
         ys = np.array(ys)
 
-        xs = torch.cat([xs_neg, xs_pos], dim=0)
+        xs = torch.cat([xs_neg, xs_pos], dim=0).cpu()
         xs = xs.numpy()
 
         visual(xs, ys, epoch + 1)
+
+    # ————————————————————————————————————————————————————————————————————————————————————————————————
+    # 测试集验证
+    y_hat_total = torch.randn(0).to(device)
+    y_total = torch.randn(0).to(device)
+
+    ys_neg = []
+    xs_neg = torch.randn(0, 2).to(device)
+
+    ys_pos = []
+    xs_pos = torch.randn(0, 2).to(device)
+
+    model.eval()
+    with torch.no_grad():
+        for i, data in enumerate(test_loader):
+            y_hat = model(data.to(device))
+            y = data.y.float()
+
+            # 用来计算整体指标
+            y_hat_trans = y_hat.argmax(1)
+            y_trans = y.argmax(1)
+            y_hat_total = torch.cat([y_hat_total, y_hat_trans])
+            y_total = torch.cat([y_total, y_trans])
+
+            for i in range(len(data)):
+                item = data[i]
+                if item.y.equal(torch.tensor([[1, 0]]).to(device)):
+                    xs_neg = torch.cat(
+                        [xs_neg, torch.index_select(y_hat, dim=0, index=torch.tensor([i]).to(device))], dim=0)
+                    ys_neg.append(0)
+                else:
+                    xs_pos = torch.cat(
+                        [xs_pos, torch.index_select(y_hat, dim=0, index=torch.tensor([i]).to(device))], dim=0)
+                    ys_pos.append(1)
+
+    acc = accuracy_score(y_total.cpu(), y_hat_total.cpu())
+    balanced_acc = balanced_accuracy_score(y_total.cpu(), y_hat_total.cpu())
+    ps = precision_score(y_total.cpu(), y_hat_total.cpu())
+    rc = recall_score(y_total.cpu(), y_hat_total.cpu())
+    f1 = f1_score(y_total.cpu(), y_hat_total.cpu())
+    c = confusion_matrix(y_total.cpu(), y_hat_total.cpu(), labels=[0, 1])
+
+    print(f"测试集 accuracy_score: {float_to_percent(acc)}")
+    print(f"测试集 balanced_accuracy_score: {float_to_percent(balanced_acc)}")
+    print(f"测试集 precision_score: {float_to_percent(ps)}")
+    print(f"测试集 recall_score: {float_to_percent(rc)}")
+    print(f"测试集 f1_score: {float_to_percent(f1)}")
+    print(f"测试集 混淆矩阵:\n {c}")
+
+    print(f"***保存tsne中***\n")
+    ys = []
+    ys += ys_neg
+    ys += ys_pos
+    ys = np.array(ys)
+
+    xs = torch.cat([xs_neg, xs_pos], dim=0).cpu()
+    xs = xs.numpy()
+
+    visual(xs, ys, -1)
